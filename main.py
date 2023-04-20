@@ -182,24 +182,24 @@ async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     arch_id = update.message.document.file_id
     newFile = await context.bot.get_file(arch_id)
-    await newFile.download_to_drive(custom_path="C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\text.tar")
+    await newFile.download_to_drive(custom_path=config["param2"]["TEMP_DIR"]+"text.tar")
     line_list=[]
     parse_tar("text.tar", "package.tar.gz")
     parse_tar("package.tar.gz", "arc_view.txt")
     parse_tar("package.tar.gz", "license.xml")
     parse_tar("package.tar.gz", "date.txt")
-    with open("C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\arc_view.txt", encoding='UTF-8') as f:
+    with open(config["param2"]["TEMP_DIR"]+"arc_view.txt", encoding='UTF-8') as f:
         for line in f:
             if line.strip():
                 line_list.append(line)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=line_list[0])
 
-    root_node = ET.parse('temp\\license.xml').getroot()      
+    root_node = ET.parse(config["param2"]["TEMP_DIR"]+"license.xml").getroot()      
     sn_tag = root_node.find('sn')
     sn_text = sn_tag.text
     await context.bot.send_message(chat_id=update.effective_chat.id, text=sn_text)
 
-    file_date = open('temp\\date.txt').read()
+    file_date = open(config["param2"]["TEMP_DIR"]+"date.txt").read()
     log_date = datetime.datetime.strptime(file_date.strip(), '%a %b %d %H:%M:%S %Z %Y')
     str_time = log_date.strftime("%d/%m/%Y %H:%M:%S")
     await context.bot.send_message(chat_id=update.effective_chat.id, text=str_time)
