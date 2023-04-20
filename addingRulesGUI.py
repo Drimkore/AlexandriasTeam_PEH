@@ -57,7 +57,7 @@ class MyFrame(wx.Frame):
             data = json.load(file)
             data["rules"].append(new_rule)
             file.seek(0)
-            json.dump(data, file)
+            json.dump(data, file, ensure_ascii=False)
             file.close()
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
