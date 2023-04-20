@@ -2,6 +2,9 @@ import asyncio, tarfile, logging, sqlite3, configparser
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ApplicationBuilder, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 
+import xml.etree.ElementTree as ET
+import datetime
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -72,10 +75,10 @@ async def check_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def parse_tar(input_file_name, output_file_name):
-    with tarfile.open("/home/art/HAckaton/dw/"+input_file_name) as f:
+    with tarfile.open("C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\"+input_file_name) as f:
         for line in f.getnames():
             if line == output_file_name:
-                f.extract(line, "/home/art/HAckaton/dw/")
+                f.extract(line, "C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\")
 
 
 async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,17 +146,30 @@ async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    arch_id = await update.message.document.file_id
+    arch_id = update.message.document.file_id
     newFile = await context.bot.get_file(arch_id)
-    await newFile.download_to_drive(custom_path="/home/art/HAckaton/dw/text.tar")
+    await newFile.download_to_drive(custom_path="C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\text.tar")
     line_list=[]
     parse_tar("text.tar", "package.tar.gz")
     parse_tar("package.tar.gz", "arc_view.txt")
-    with open("/home/art/HAckaton/dw/arc_view.txt", encoding='UTF-8') as f:
+    parse_tar("package.tar.gz", "license.xml")
+    parse_tar("package.tar.gz", "date.txt")
+    with open("C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\arc_view.txt", encoding='UTF-8') as f:
         for line in f:
             if line.strip():
                 line_list.append(line)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=line_list[0])
+
+    root_node = ET.parse('temp\\license.xml').getroot()      
+    sn_tag = root_node.find('sn')
+    sn_text = sn_tag.text
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=sn_text)
+
+    file_date = open('temp\\date.txt').read()
+    log_date = datetime.datetime.strptime(file_date.strip(), '%a %b %d %H:%M:%S %Z %Y')
+    str_time = log_date.strftime("%d/%m/%Y %H:%M:%S")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=str_time)
+
     #await context.bot.get_file(file_id=update.message.document.file_id)
      
 
@@ -164,13 +180,13 @@ if __name__ == '__main__':
     start_handler = CommandHandler('start', start)
     send_arch_handler = CommandHandler('send_arch', send_arch)
 
-    #tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
-    #targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
+    tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
+    targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
 
     application.add_handler(start_handler)
     application.add_handler(CallbackQueryHandler(button))
-    #application.add_handler(tar_file_handler)
-    #application.add_handler(targz_file_handler)
+    application.add_handler(tar_file_handler)
+    application.add_handler(targz_file_handler)
     application.add_handler(send_arch_handler)
     application.run_polling()
 
