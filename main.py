@@ -1,40 +1,67 @@
 import asyncio, tarfile, logging, sqlite3, configparser
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CommandHandler, ApplicationBuilder, ContextTypes, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import CommandHandler, ApplicationBuilder, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler
+from telegram.constants import ChatAction
 
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+SEND_DOCS_TARGZ, SEND_DOCS_TAR = range(2)
+
 conn = sqlite3.connect("data.db")
 cursor = conn.cursor()
 
 
-def database_query(query):    
+
+def database_query(query, type):    
     cursor.execute(query)
+    match type:
+        case "INSERT":
+            conn.commit()
+        case "SELECT":
+            cursor.fetchall()
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     variant = query.data
-    query.answer()    
-    if variant == '3':
-        await check_device(update, context)
-    if variant == '5':
-        await check_system(update, context)
-    if variant == '6':
-        await find_system_by_report(update, context)
-    if variant == '8':
-        await add_new_device(update, context)
-    if variant == '9':
+    query.answer()
+    match variant:
+        case '3':
+            await check_device(update, context)
+        case '5':
+            await check_system(update, context)
+        case '6':
+            await find_system_by_report(update, context)
+        case '8':
+            await add_new_device(update, context)
+        case '9':
+            #TODO результаты проверки
+            await continue_work(update, context)
+        case '10':
+            await find_system_by_name(update, context)
+            await check_config(update, context)
+        case '12':       
+            await check_device_list(update, context)
+    #if variant == '3':
+    #    await check_device(update, context)
+    #if variant == '5':
+    #    await check_system(update, context)
+    #if variant == '6':
+    #    await find_system_by_report(update, context)
+    #if variant == '8':
+    #    await add_new_device(update, context)
+    #if variant == '9':
         #TODO результаты проверки
-        await continue_work(update, context)
-    if variant == '10':
-        await find_system_by_name(update, context)
-        await check_config(update, context)
-    if variant == '12':
-        await check_device_list(update, context)
+    #    await continue_work(update, context)
+    #if variant == '10':
+    #    await find_system_by_name(update, context)
+    #    await check_config(update, context)
+    #if variant == '12':
+    #   await check_device_list(update, context)
         
         #await query.edit_message_text(text="Введите название устройства в системе")
         #context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
@@ -84,13 +111,19 @@ async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for system_name in cursor.fetchall():
         if system_name == sys_name:
             add_new_device()
+    #database_query("INSERT INTO SYSTEMS (name, version) VALUES ("+name+","+version+")")
+    #database_query("INSERT INTO DEVICES (system id,name, file, data) VALUES ("system_id","+name+","+file+","+data+")")
+    #database_query("INSERT INTO Single DEVICES (name, file) VALUES ("+name+","+file+")")
+    
 
 
 async def check_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
     #TODO вывод данных, и предложение продолжить.
-    await send_arch(update, context)
+    return SEND_DOCS_TAR
+    #await send_arch(update, context)
     await continue_work(update, context)
+    
 
 
 async def find_system_by_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,10 +155,11 @@ async def add_new_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_device_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #TODO список устройств вывод 
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
-    await send_arch(update, context)
+    #await send_arch(update, context)
     #TODO закидываем файл
     keyboard = [
-        [InlineKeyboardButton("Да", callback_data='12'),
+        [
+        InlineKeyboardButton("Да", callback_data='12'),
         InlineKeyboardButton("Нет", callback_data='9'),
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -157,6 +191,10 @@ async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #await context.bot.get_file(file_id=update.message.document.file_id)
      
 
+async def done():
+    return ConversationHandler.END
+
+
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read("config.ini")
@@ -164,11 +202,29 @@ if __name__ == '__main__':
     start_handler = CommandHandler('start', start)
     send_arch_handler = CommandHandler('send_arch', send_arch)
 
-    #tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
-    #targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            SEND_DOCS_TARGZ:[
+                MessageHandler(
+                    filters.Document.TARGZ | filters.Document.FileExtension("tar"), send_arch
+                )
+            ],
+            SEND_DOCS_TAR:[
+                MessageHandler(
+                    filters.Document.FileExtension("tar") | filters.Document.TARGZ, send_arch
+                )
+            ],
+        },
+        fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
+    )
+
+    tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
+    targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
 
     application.add_handler(start_handler)
     application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(conv_handler)
     #application.add_handler(tar_file_handler)
     #application.add_handler(targz_file_handler)
     application.add_handler(send_arch_handler)
