@@ -1,5 +1,5 @@
 import wx
-
+import json
 
 class MyFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -45,18 +45,37 @@ class MyFrame(wx.Frame):
         # объявлены функции при нажатии кнопок
         self.Bind(wx.EVT_BUTTON, self.add_err_key, id=btn_add.GetId())
         self.Bind(wx.EVT_BUTTON, self.save, id=btn_save.GetId())
+        # считывает файл с правилами
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
         panel.SetSizer(vbox)
+
     # функция добавления правил в файл
     def add_err_key(self, event):
-        with open("rules.json", "a") as f:
-            f.write(',{"'+self.txt_error_key.GetValue()+'":"'+self.txt_recom.GetValue()+'"}')
+        new_rule = {f'{self.txt_error_key.GetValue()}': f'{self.txt_recom.GetValue()}'}
+        with open("rules.json", "r+") as file:
+            data = json.load(file)
+            data["rules"].append(new_rule)
+            file.seek(0)
+            json.dump(data, file)
+            file.close()
+        self.txt_window.Clear()
+        with open("rules.json", "r") as f:
+            self.txt_window.write(f.read())
+
 
     # функция сохранений изменений
     def save(self, event):
         with open("rules.json", "w") as f:
             f.write(self.txt_window.GetValue())
+            f.close()
+        self.txt_window.Clear()
+        with open("rules.json", "r") as f:
+            self.txt_window.write(f.read())
+    # def reload(self):
+    #     self.txt_window.Clear()
+    #     with open("rules.json", "r") as f:
+    #         self.txt_window.write(f.read())
 
 
 if __name__ == '__main__':
