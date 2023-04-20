@@ -1,5 +1,5 @@
 import asyncio, tarfile, logging, sqlite3, configparser
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import CommandHandler, ApplicationBuilder, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler
 from telegram.constants import ChatAction
 
@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-SEND_DOCS_TARGZ, SEND_DOCS_TAR = range(2)
+BUTTON, SEND_DOCS_TAR, CONT_WORK = range(3)
 
 conn = sqlite3.connect("data.db")
 cursor = conn.cursor()
@@ -39,39 +39,24 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     variant = query.data
     query.answer()
-    match variant:
-        case '3':
-            await check_device(update, context)
-        case '5':
-            await check_system(update, context)
-        case '6':
-            await find_system_by_report(update, context)
-        case '8':
-            await add_new_device(update, context)
-        case '9':
-            #TODO результаты проверки
-            await continue_work(update, context)
-        case '10':
-            await find_system_by_name(update, context)
-            await check_config(update, context)
-        case '12':       
-            await check_device_list(update, context)
-    #if variant == '3':
-    #    await check_device(update, context)
-    #if variant == '5':
-    #    await check_system(update, context)
-    #if variant == '6':
-    #    await find_system_by_report(update, context)
-    #if variant == '8':
-    #    await add_new_device(update, context)
-    #if variant == '9':
+
+    if variant == '3':
+        await check_device(update, context)
+        return SEND_DOCS_TAR
+    if variant == '5':
+        await check_system(update, context)
+    if variant == '6':
+        await find_system_by_report(update, context)
+    if variant == '8':
+        await add_new_device(update, context)
+    if variant == '9':
         #TODO результаты проверки
-    #    await continue_work(update, context)
-    #if variant == '10':
-    #    await find_system_by_name(update, context)
-    #    await check_config(update, context)
-    #if variant == '12':
-    #   await check_device_list(update, context)
+        await continue_work(update, context)
+    if variant == '10':
+        await find_system_by_name(update, context)
+        await check_config(update, context)
+    if variant == '12':
+       await check_device_list(update, context)
         
         #await query.edit_message_text(text="Введите название устройства в системе")
         #context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
@@ -86,9 +71,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
+    #await check_device(update, context)
+    return BUTTON
 
 
-async def continue_work(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def continue_work(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Вам помочь чем-то ещё?")
     keyboard = [
         [InlineKeyboardButton("Проверить устройчтво", callback_data='3'),
@@ -96,6 +83,7 @@ async def continue_work(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
+    return ConversationHandler.END
 
 
 async def check_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -127,13 +115,11 @@ async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 
 
-async def check_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def check_device(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
     #TODO вывод данных, и предложение продолжить.
-    return SEND_DOCS_TAR
-    #await send_arch(update, context)
-    await continue_work(update, context)
-    
+    #return SEND_DOCS_TAR
+
 
 
 async def find_system_by_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -186,7 +172,7 @@ async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
 
 
-async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     arch_id = update.message.document.file_id
     newFile = await context.bot.get_file(arch_id)
     await newFile.download_to_drive(custom_path=config["param2"]["TEMP_DIR"]+"text.tar")
@@ -215,17 +201,15 @@ async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   ( name, file, data) VALUES ( ?, ?, ?)"""
     data_tuple = (sn_text, convert_to_binary_data(config["param2"]["TEMP_DIR"]+"text.tar"), str_time)                              
     database_query(sqlite_insert_blob_query, data_tuple, "INSERT")
-
+    return CONT_WORK
     #await context.bot.get_file(file_id=update.message.document.file_id)
      
-
-async def done():
-    return ConversationHandler.END
 
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read("config.ini")
+    
     application = ApplicationBuilder().token(config["param1"]["TOKEN"]).build()
     start_handler = CommandHandler('start', start)
     send_arch_handler = CommandHandler('send_arch', send_arch)
@@ -233,23 +217,29 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
+            BUTTON:[
+                CallbackQueryHandler(button)
+            ],
             SEND_DOCS_TAR:[
                 MessageHandler(
                     filters.Document.FileExtension("tar"), send_arch
                 )
             ],
+            CONT_WORK:[
+                CommandHandler("continue_work", continue_work)
+            ]
         },
-        fallbacks=[CommandHandler('done', done)],
+        fallbacks=[]
     )
 
     tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
     targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
 
-    application.add_handler(start_handler)
-    application.add_handler(CallbackQueryHandler(button))
+    #application.add_handler(start_handler)    
     application.add_handler(conv_handler)
-    application.add_handler(tar_file_handler)
-    application.add_handler(targz_file_handler)
-    application.add_handler(send_arch_handler)
+    #application.add_handler(CallbackQueryHandler(button))
+    #application.add_handler(tar_file_handler)
+    #application.add_handler(targz_file_handler)
+    #application.add_handler(send_arch_handler)
     application.run_polling()
 
