@@ -19,13 +19,20 @@ cursor = conn.cursor()
 
 
 
-def database_query(query, type):    
-    cursor.execute(query)
+def database_query(query, dt, type):    
+    cursor.execute(query, dt)
     match type:
         case "INSERT":
             conn.commit()
         case "SELECT":
             cursor.fetchall()
+
+
+def convert_to_binary_data(filename):
+    # Convert digital data to binary format
+    with open(filename, 'rb') as file:
+        blobData = file.read()
+    return blobData
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,10 +109,10 @@ async def check_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def parse_tar(input_file_name, output_file_name):
-    with tarfile.open("C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\"+input_file_name) as f:
+    with tarfile.open(config["param2"]["TEMP_DIR"]+input_file_name) as f:
         for line in f.getnames():
             if line == output_file_name:
-                f.extract(line, "C:\\Users\\User\\Desktop\\hakaton\\AlexandriasTeam_PEH\\temp\\")
+                f.extract(line, config["param2"]["TEMP_DIR"])
 
 
 async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -198,11 +205,16 @@ async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sn_tag = root_node.find('sn')
     sn_text = sn_tag.text
     await context.bot.send_message(chat_id=update.effective_chat.id, text=sn_text)
+    
 
     file_date = open(config["param2"]["TEMP_DIR"]+"date.txt").read()
     log_date = datetime.datetime.strptime(file_date.strip(), '%a %b %d %H:%M:%S %Z %Y')
     str_time = log_date.strftime("%d/%m/%Y %H:%M:%S")
     await context.bot.send_message(chat_id=update.effective_chat.id, text=str_time)
+    sqlite_insert_blob_query = """ INSERT INTO SingleDEVICES
+                                  ( name, file, data) VALUES ( ?, ?, ?)"""
+    data_tuple = (sn_text, convert_to_binary_data(config["param2"]["TEMP_DIR"]+"text.tar"), str_time)                              
+    database_query(sqlite_insert_blob_query, data_tuple, "INSERT")
 
     #await context.bot.get_file(file_id=update.message.document.file_id)
      
@@ -221,18 +233,13 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            SEND_DOCS_TARGZ:[
-                MessageHandler(
-                    filters.Document.TARGZ | filters.Document.FileExtension("tar"), send_arch
-                )
-            ],
             SEND_DOCS_TAR:[
                 MessageHandler(
-                    filters.Document.FileExtension("tar") | filters.Document.TARGZ, send_arch
+                    filters.Document.FileExtension("tar"), send_arch
                 )
             ],
         },
-        fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
+        fallbacks=[CommandHandler('done', done)],
     )
 
     tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
