@@ -62,6 +62,9 @@ class MyFrame(wx.Frame):
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
+            file.close()
+        self.txt_error_key.Clear()
+        self.txt_recom.Clear()
 
 
     # функция сохранений изменений
@@ -72,6 +75,7 @@ class MyFrame(wx.Frame):
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
+            f.close()
 
 
 if __name__ == '__main__':
