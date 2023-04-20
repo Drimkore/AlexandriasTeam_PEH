@@ -10,21 +10,62 @@ logging.basicConfig(
 conn = sqlite3.connect("data.db")
 cursor = conn.cursor()
 
+
 def database_query(query):    
     cursor.execute(query)
 
-async def button(update: Update, _):
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     variant = query.data
-    query.answer()
-    
-    await query.edit_message_text(text=f"Выбранный вариант: {variant}", reply_markup=check_device)
+    query.answer()    
+    if variant == '3':
+        await check_device(update, context)
+    if variant == '5':
+        await check_system(update, context)
+    if variant == '6':
+        await find_system_by_report(update, context)
+    if variant == '8':
+        await add_new_device(update, context)
+    if variant == '9':
+        #TODO результаты проверки
+        await continue_work(update, context)
+    if variant == '10':
+        await find_system_by_name(update, context)
+        await check_config(update, context)
+    if variant == '12':
+        await check_device_list(update, context)
+        
+        #await query.edit_message_text(text="Введите название устройства в системе")
+        #context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
+    #await query.edit_message_text(text=f"Выбранный вариант: {variant}")
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Привет, чем помочь?")
     keyboard = [
-        [InlineKeyboardButton("Проверить устройчтво", callback_data='1'),
-        InlineKeyboardButton("Проверить систему", callback_data='2'),
+        [InlineKeyboardButton("Проверить устройчтво", callback_data='3'),
+        InlineKeyboardButton("Проверить систему", callback_data='5'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
+
+
+async def continue_work(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Вам помочь чем-то ещё?")
+    keyboard = [
+        [InlineKeyboardButton("Проверить устройчтво", callback_data='3'),
+        InlineKeyboardButton("Проверить систему", callback_data='5'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
+
+
+async def check_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Как вы хотите найти систему?")
+    keyboard = [
+        [InlineKeyboardButton("Найти систему по отчету", callback_data='6'),
+        InlineKeyboardButton("Найти систему по названию", callback_data='10'),
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
@@ -36,15 +77,66 @@ def parse_tar(input_file_name, output_file_name):
             if line == output_file_name:
                 f.extract(line, "/home/art/HAckaton/dw/")
 
-async def check_system(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sys_name = update.message.text
     database_query("SELECT name FROM SYSTEMS")
     for system_name in cursor.fetchall():
         if system_name == sys_name:
             add_new_device()
 
+
 async def check_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
+    #TODO вывод данных, и предложение продолжить.
+    await continue_work(update, context)
+
+
+async def find_system_by_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Найдена система: ")
+    #TODO парсер
+    await check_config(update, context)
+
+
+async def find_system_by_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Введите название системы")
+    #TODO ввод названия
+    #Поиск системы
+
+
+async def add_new_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Введите название устройства в системе")
+    #TODO add dev_name
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
+    #TODO send report
+    
+    keyboard = [
+        [InlineKeyboardButton("Да", callback_data='8'),
+        InlineKeyboardButton("Нет", callback_data='9'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text='Добавить еще устройство?', reply_markup=reply_markup)
+
+
+async def check_device_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #TODO список устройств вывод 
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
+    #TODO закидываем файл
+    keyboard = [
+        [InlineKeyboardButton("Да", callback_data='12'),
+        InlineKeyboardButton("Нет", callback_data='9'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text='Добавить еще устройство?', reply_markup=reply_markup) 
+
+async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Создать вариант конфигурации?")
+    keyboard = [
+        [InlineKeyboardButton("Добавить новое устройство", callback_data='8'),
+        InlineKeyboardButton("Список устройств", callback_data='12'),
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text='Сделайте выбор:', reply_markup=reply_markup)
 
 
 async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
