@@ -1,5 +1,5 @@
 import asyncio, tarfile, logging, sqlite3, configparser
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, MenuButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ApplicationBuilder, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 
 
@@ -89,6 +89,7 @@ async def check_system_sql(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
     #TODO вывод данных, и предложение продолжить.
+    await send_arch(update, context)
     await continue_work(update, context)
 
 
@@ -121,6 +122,7 @@ async def add_new_device(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_device_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #TODO список устройств вывод 
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Добавьте файл отчета")
+    await send_arch(update, context)
     #TODO закидываем файл
     keyboard = [
         [InlineKeyboardButton("Да", callback_data='12'),
@@ -128,6 +130,7 @@ async def check_device_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(chat_id=update.effective_chat.id, text='Добавить еще устройство?', reply_markup=reply_markup) 
+
 
 async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Создать вариант конфигурации?")
@@ -140,7 +143,7 @@ async def check_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_arch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    arch_id = update.message.document.file_id
+    arch_id = await update.message.document.file_id
     newFile = await context.bot.get_file(arch_id)
     await newFile.download_to_drive(custom_path="/home/art/HAckaton/dw/text.tar")
     line_list=[]
@@ -161,13 +164,13 @@ if __name__ == '__main__':
     start_handler = CommandHandler('start', start)
     send_arch_handler = CommandHandler('send_arch', send_arch)
 
-    tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
-    targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
+    #tar_file_handler = MessageHandler(filters.Document.FileExtension("tar"), callback=send_arch)
+    #targz_file_handler = MessageHandler(filters.Document.TARGZ, callback=send_arch)
 
     application.add_handler(start_handler)
     application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(tar_file_handler)
-    application.add_handler(targz_file_handler)
+    #application.add_handler(tar_file_handler)
+    #application.add_handler(targz_file_handler)
     application.add_handler(send_arch_handler)
     application.run_polling()
 
