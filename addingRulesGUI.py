@@ -52,16 +52,18 @@ class MyFrame(wx.Frame):
 
     # функция добавления правил в файл
     def add_err_key(self, event):
-        new_rule = {f'{self.txt_error_key.GetValue()}': f'{self.txt_recom.GetValue()}'}
         with open("rules.json", "r+") as file:
             data = json.load(file)
-            data["rules"].append(new_rule)
+            data[f'{self.txt_error_key.GetValue()}'] = f'{self.txt_recom.GetValue()}'
             file.seek(0)
             json.dump(data, file, ensure_ascii=False)
             file.close()
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
+            file.close()
+        self.txt_error_key.Clear()
+        self.txt_recom.Clear()
 
 
     # функция сохранений изменений
@@ -72,6 +74,7 @@ class MyFrame(wx.Frame):
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
+            f.close()
 
 
 if __name__ == '__main__':
