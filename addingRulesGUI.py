@@ -72,10 +72,6 @@ class MyFrame(wx.Frame):
         self.txt_window.Clear()
         with open("rules.json", "r") as f:
             self.txt_window.write(f.read())
-    # def reload(self):
-    #     self.txt_window.Clear()
-    #     with open("rules.json", "r") as f:
-    #         self.txt_window.write(f.read())
 
 
 if __name__ == '__main__':
